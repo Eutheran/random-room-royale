@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Making your first Phaser 3 Game - Part 1</title>
+    <script src="//cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"></script>
+    <style type="text/css">
+      body {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <script type="text/javascript">
+      let score = 0; //players score
+      let scoreText; //function that will display it, needs to be setup in create()
+
+      const config = {
+        type: Phaser.AUTO, //what is rendering phaser
+        width: 800, //size of game displayed
+        height: 600,
+        physics: {
+          default: 'arcade', //gravity type and how strong it is
+          arcade: {
+            gravity: { y: 300 },
+            debug: false,
+          },
+        },
+        scene: {
+          //background to setup our under the hood load in and setups
+          preload: preload,
+          create: create,
+          update: update,
+        },
+      };
+
+      const game = new Phaser.Game(config); //passes config to game
+
+      function preload() {
+        //ORDER MATTERS HERE!!!!!!!!!!
+        //loads in all sprite sheets and assets along with their sizes if you choose to include them
+        this.load.image('sky', 'assets/sky.png');
+        this.load.image('ground', 'assets/platform.png');
+        this.load.image('star', 'assets/star.png');
+        this.load.image('bomb', 'assets/bomb.png');
+        this.load.spritesheet('dude', 'assets/dude.png', {
+          frameWidth: 32,
+          frameHeight: 48,
+        });
+      }
+
+      function create() {
+        //creates the score at location with these colors and sizes
+        scoreText = this.add.text(16, 16, 'score: 0', {
+          fontSize: '32px',
+          fill: '#000',
+        });
+        cursors = this.input.keyboard.createCursorKeys(); //creates movement key basis
+        this.add.image(400, 300, 'sky');
+
+        platforms = this.physics.add.staticGroup(); //you must select static physics for things that are static, otherwise dynamic is the default option
+
+        platforms //ground is now scaled to be the whole bottom of the screen so you dont have gaps to fall through
+          .create(400, 568, 'ground')
+          .setScale(2)
+          .refreshBody(); //need to let the create function know we have altered the ground png to fit
+
+        platforms.create(600, 400, 'ground');
+        platforms.create(50, 250, 'ground');
+        platforms.create(750, 220, 'ground'); //generating platforms
+
+        stars = this.physics.add.group({
+          key: 'star',
+          repeat: 11,
+          setXY: { x: 12, y: 0, stepX: 70 }, //moves additional spawns 70 x-axis pixels away from first spawn
+        });
+
+        stars.children.iterate(function(child) {
+          child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8)); //stars bounce on the ground at a random value between .4 and .8
+        });
+
+        this.physics.add.collider(stars, platforms); // stars get physics so they dont fall through platforms
+
+        this.physics.add.overlap(player, stars, collectStar, null, this); //detects if a player is overlapping an item(the star)
+
+        function collectStar(player, star) {
+          // collects the star if player is touching the star and star is touching the player
+          star.disableBody(true, true); // under the hood: makes star body inactive and invisible from display, then removes physics from it
+          score += 10;
+          scoreText.setText(`Score: ${score}`); //changes the score text by 10 when you pick up a star
+
+          if (stars.countActive(true) === 0) {
+            //if all stars have been collected
+            stars.children.iterate(function(child) {
+              child.enableBody(true, child.x, 0, true, true); //reenable the stars and reset their y positions to zero
+            });
+            let x = //pick a random x coord on the opposite side of the player and spawn the bomb
+              player.x < 400
+                ? Phaser.Math.Between(400, 800)
+                : Phaser.Math.Between(0, 400);
+
+            let bomb = bombs.create(x, 16, 'bomb'); // create the bomb
+            bomb.setBounce(1);
+            bomb.setCollideWorldBounds(true);
+            bomb.setVelocity(Phaser.Math.Between(-200, 200), 20); //give the bomb a random speed
+          }
+        }
+
+        player = this.physics.add.sprite(100, 450, 'dude'); //gives player physics
+
+        player.setBounce(0.2);
+        player.setCollideWorldBounds(true);
+        player.body.setGravityY(300); //gives them Y gravity
+        this.physics.add.collider(player, platforms); //makes it so players cant run through or fall through objects with their own gravity
+
+        //creating animations based off the style sheet for the dude
+        this.anims.create({
+          key: 'left',
+          frames: this.anims.generateFrameNumbers('dude', { start: 0, end: 3 }), //what frames you will use from your style sheet for animations
+          frameRate: 10,
+          repeat: -1, //-1 means to keep repeating action
+        });
+
+        this.anims.create({
+          key: 'turn',
+          frames: [{ key: 'dude', frames: 4 }],
+          frameRate: 20,
+        });
+
+        this.anims.create({
+          key: 'right',
+          frames: this.anims.generateFrameNumbers('dude', { start: 5, end: 8 }),
+          frameRate: 10,
+          repeat: -1,
+        });
+
+        //creating bombs
+        bombs = this.physics.add.group();
+        this.physics.add.collider(bombs, platforms); //bombs bounce off platforms
+        this.physics.add.collider(bombs, hitBomb, null, this); //if bombs hit players it will active the function below
+
+        function hitBomb(player, bomb) {
+          this.physics.pause();
+          player.setTint(0xff0000); //makes player change color
+          player.anims.play('turn'); //changes player from whatever they are doing to the turn frame
+          gameOver = true; //game is over if player is it
+        }
+      }
+      //setting key actions if button is pressed down (isdown)
+      function update() {
+        if (cursors.left.isDown) {
+          player.setVelocityX(-160);
+          playeranims.play('left', true);
+        } else if (cursors.right.isDown) {
+          player.setVelocityX(0);
+          player.anims.play('turn');
+        }
+        //player can only jump if they are touching the ground, otherwise nothing will happen
+        if (cursors.up.isDown && player.body.touching.down) {
+          player.setVelocityY(-330);
+        }
+      }
+    </script>
+  </body>
+</html>

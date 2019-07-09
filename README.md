@@ -1,6 +1,6 @@
-# FullBlast Academy
+# Random-Room-Royale
 
-Let's build a game!
+BATTLE HARD OR GO HOME!
 
 1. 🍴 Fork this repo to your own GitHub account (if you haven't done so already)
 2. 🐑 After cloning to your local machine, install the dependencies: `npm install`
